@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "873771876804",
+    "project_id": "carsell6-5982a",
+    "storage_bucket": "carsell6-5982a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:873771876804:android:a7134ae636d3e99142a491",
+        "android_client_info": {
+          "package_name": "com.spencerbims.carsell6"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "873771876804-c6vbco3lfoc5ari6ntrd1fj0ebnfhjml.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDcLYEHE2-vqFKJipp54w1WuvtPnfYwPZs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "873771876804-c6vbco3lfoc5ari6ntrd1fj0ebnfhjml.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
