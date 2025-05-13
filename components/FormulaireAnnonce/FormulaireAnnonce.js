@@ -1,10 +1,10 @@
+// src/FormulaireAnnonce.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, ScrollView, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, Button, ScrollView, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { RadioButton } from 'react-native-paper';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import { PaperProvider } from 'react-native-paper';
+import { API_URL } from '../../config';  // Import du fichier config.js
 
 const FormulaireAnnonce = () => {
   const [marque, setMarque] = useState('');
@@ -12,32 +12,7 @@ const FormulaireAnnonce = () => {
   const [autreModele, setAutreModele] = useState('');
   const [showAutreModele, setShowAutreModele] = useState(false);
   const [images, setImages] = useState([]);
-
-  const [loading, setLoading] = useState(false); // Ajout pour le chargement
-
-const resetForm = () => {
-  setMarque('');
-  setModele('');
-  setAutreModele('');
-  setShowAutreModele(false);
-  setImages([]);
-  setConfortOptions({
-    climatisation: 'non',
-    siegesChauffants: 'non',
-    reglageSieges: 'non',
-    toitOuvrant: 'non',
-    volantChauffant: 'non',
-    demarrageSansCle: 'non',
-    coffreElectrique: 'non',
-    storesPareSoleil: 'non',
-  });
-  setMoteur('');
-  setTransmission('');
-  setFreins('');
-  setSuspension('');
-  setEssaiRoutier('');
-  setPrix('');
-};
+  const [loading, setLoading] = useState(false);
 
   const [confortOptions, setConfortOptions] = useState({
     climatisation: 'non',
@@ -61,73 +36,55 @@ const resetForm = () => {
   const [modeles, setModeles] = useState([]);
 
   useEffect(() => {
-    axios.get('https://carsell-backend.onrender.com/voiture/') // Remplacez par votre API
-      .then(response => {
-        setMarques(response.data);
-      })
-      .catch(error => {
-        console.error("Erreur de récupération des marques", error);
-      });
+    axios.get(`${API_URL}/voiture/`)
+      .then(response => setMarques(response.data))
+      .catch(error => console.error("Erreur marques:", error));
   }, []);
 
   useEffect(() => {
     if (marque) {
-      axios.get(`https://carsell-backend.onrender.com/modeles/?marque=${marque}`) // Remplacez par votre API
-        .then(response => {
-          setModeles(response.data);
-        })
-        .catch(error => {
-          console.error("Erreur de récupération des modèles", error);
-        });
+      axios.get(`${API_URL}/modeles/?marque=${marque}`)
+        .then(response => setModeles(response.data))
+        .catch(error => console.error("Erreur modèles:", error));
     }
   }, [marque]);
 
-  const handleModeleChange = (value) => {
-    if (value === 'autres') {
-      setShowAutreModele(true);
-      setModele('');
-    } else {
-      setShowAutreModele(false);
-      setModele(value);
-    }
-  };
-
   const handleImagePicker = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Permission de la galerie requise');
-      return;
-    }
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.granted) {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        quality: 1,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const validImages = result.assets.filter((image) =>
-        image.uri.endsWith('.png') || image.uri.endsWith('.jpeg') || image.uri.endsWith('.jpg')
-      );
-
-      if (validImages.length > 0) {
-        setImages((prevImages) => [...prevImages, ...validImages]);
-      } else {
-        alert('Veuillez sélectionner uniquement des fichiers PNG ou JPEG');
+      if (!result.cancelled) {
+        setImages([...images, result.uri]);
       }
+    } else {
+      alert('Permission refusée pour accéder à la galerie');
     }
   };
 
-  const handleSubmit = () => {
-    setLoading(true); // Quand on commence l'envoi
+  const handleSubmit = async () => {
+    if (loading) return;
+
+    setLoading(true);
+
     const formData = new FormData();
-  
-    formData.append('marque', marque);
-    formData.append('modele', showAutreModele ? autreModele : modele);
-    Object.keys(confortOptions).forEach((key) => {
-      formData.append(key, confortOptions[key]);
+    images.forEach((imageUri, index) => {
+      formData.append('images', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: `photo_${index + 1}.jpg`,
+      });
     });
+
+    // Ajout des autres données
+    formData.append('marque', marque);
+    formData.append('modele', modele);
+    formData.append('autreModele', autreModele);
+    formData.append('confortOptions', JSON.stringify(confortOptions));
     formData.append('moteur', moteur);
     formData.append('transmission', transmission);
     formData.append('freins', freins);
@@ -135,208 +92,148 @@ const resetForm = () => {
     formData.append('essaiRoutier', essaiRoutier);
     formData.append('prix', prix);
 
-    images.forEach((image, index) => {
-      formData.append('images[]', {
-        uri: image.uri,
-        type: 'image/jpeg',
-        name: `photo_${index}.jpg`,
+    try {
+      const response = await axios.post(`${API_URL}/annonces`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-    });
 
-    axios.post('https://carsell-backend.onrender.com/upload-annonce', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    .then(response => {
-      console.log(response.data);
-      alert('Annonce envoyée avec succès !');
-      resetForm(); // Réinitialiser les champs
-    })
-    .catch(error => {
-      console.error('Erreur lors de l\'envoi de l\'annonce :', error);
-      alert('Erreur lors de l\'envoi de l\'annonce');
-    })
-    .finally(() => {
-      setLoading(false); // Dans tous les cas, on arrête le loading
-    });
+      if (response.status === 200) {
+        alert('Annonce ajoutée avec succès !');
+      } else {
+        alert('Erreur lors de l\'ajout de l\'annonce');
+      }
+    } catch (error) {
+      console.error('Erreur lors de la soumission:', error);
+      alert('Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      setLoading(false);
+    }
   };
-  
 
   return (
-    
-    <PaperProvider>
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Marque</Text>
-      <Picker
-        selectedValue={marque}
-        style={styles.picker}
-        onValueChange={(itemValue) => setMarque(itemValue)}
-      >
-        <Picker.Item label="Sélectionnez la marque" value="" />
-        {marques.map((marqueItem, index) => (
-          <Picker.Item key={index} label={marqueItem} value={marqueItem} />
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Formulaire d'Annonce</Text>
+
+      <Picker selectedValue={marque} onValueChange={setMarque}>
+        <Picker.Item label="Sélectionner une marque" value="" />
+        {marques.map(marque => (
+          <Picker.Item key={marque.id} label={marque.nom} value={marque.nom} />
         ))}
       </Picker>
 
       {marque && (
-        <>
-          <Text style={styles.header}>Modèle</Text>
-          <Picker
-            selectedValue={modele}
-            style={styles.picker}
-            onValueChange={handleModeleChange}
-          >
-            <Picker.Item label="Sélectionnez le modèle" value="" />
-            {modeles.map((modeleItem, index) => (
-              <Picker.Item key={index} label={modeleItem} value={modeleItem} />
-            ))}
-            <Picker.Item label="Autres" value="autres" />
-          </Picker>
-
-          {showAutreModele && (
-            <TextInput
-              style={styles.input}
-              placeholder="Entrez le nom du modèle"
-              value={autreModele}
-              onChangeText={setAutreModele}
-            />
-          )}
-        </>
+        <Picker selectedValue={modele} onValueChange={setModele}>
+          <Picker.Item label="Sélectionner un modèle" value="" />
+          {modeles.map(modele => (
+            <Picker.Item key={modele.id} label={modele.nom} value={modele.nom} />
+          ))}
+        </Picker>
       )}
 
-<Text style={styles.header}>🛋️ Confort et commodités</Text>
-        {[
-          ['climatisation', 'Climatisation automatique / bi-zone / tri-zone'],
-          ['siegesChauffants', 'Sièges chauffants / ventilés / massants'],
-          ['reglageSieges', 'Réglage électrique des sièges avec mémoire'],
-          ['toitOuvrant', 'Toit ouvrant / panoramique'],
-          ['volantChauffant', 'Volant chauffant'],
-          ['demarrageSansCle', 'Démarrage sans clé (keyless start)'],
-          ['coffreElectrique', 'Ouverture électrique du coffre'],
-          ['storesPareSoleil', 'Stores pare-soleil automatiques']
-        ].map(([key, label]) => (
-          <View key={key} style={styles.optionContainer}>
-            <Text>{label}</Text>
-            <Picker
-              selectedValue={confortOptions[key]}
-              onValueChange={(value) => setConfortOptions({ ...confortOptions, [key]: value })}
-            >
-              <Picker.Item label="Sélectionner" value="" />
-              <Picker.Item label="Oui" value="1" />
-              <Picker.Item label="Non" value="0" />
-            </Picker>
-          </View>
-        ))}
+      {modele === 'Autre' && (
+        <TextInput
+          style={styles.input}
+          placeholder="Entrez le modèle"
+          value={autreModele}
+          onChangeText={setAutreModele}
+        />
+      )}
 
-      <Text style={styles.header}>🔧 Caractéristiques techniques</Text>
-      <View style={styles.optionContainer}>
-        <Text>État du moteur</Text>
-        <Picker selectedValue={moteur} onValueChange={(itemValue) => setMoteur(itemValue)}>
-          <Picker.Item label="Bon" value="Bon" />
-          <Picker.Item label="Moyen" value="Moyen" />
-          <Picker.Item label="Défectueux" value="Défectueux" />
-        </Picker>
-      </View>
+      {/* Options de confort */}
+      {Object.keys(confortOptions).map((key, index) => (
+        <View key={index} style={styles.checkboxContainer}>
+          <Text>{key}</Text>
+          <Picker
+            selectedValue={confortOptions[key]}
+            onValueChange={(value) => setConfortOptions({ ...confortOptions, [key]: value })}
+          >
+            <Picker.Item label="Oui" value="oui" />
+            <Picker.Item label="Non" value="non" />
+          </Picker>
+        </View>
+      ))}
 
-      <View style={styles.optionContainer}>
-        <Text>Type de transmission</Text>
-        <Picker selectedValue={transmission} onValueChange={(itemValue) => setTransmission(itemValue)}>
-          <Picker.Item label="Manuelle" value="Manuelle" />
-          <Picker.Item label="Automatique" value="Automatique" />
-        </Picker>
-      </View>
-
-      <View style={styles.optionContainer}>
-        <Text>État des freins</Text>
-        <Picker selectedValue={freins} onValueChange={(itemValue) => setFreins(itemValue)}>
-          <Picker.Item label="Bon" value="Bon" />
-          <Picker.Item label="Moyen" value="Moyen" />
-          <Picker.Item label="À réparer" value="À réparer" />
-        </Picker>
-      </View>
-
-      <View style={styles.optionContainer}>
-        <Text>Suspension</Text>
-        <Picker selectedValue={suspension} onValueChange={(itemValue) => setSuspension(itemValue)}>
-          <Picker.Item label="Bon" value="Bon" />
-          <Picker.Item label="Moyen" value="Moyen" />
-          <Picker.Item label="Défectueux" value="Défectueux" />
-        </Picker>
-      </View>
-
-      <View style={styles.optionContainer}>
-        <Text>Le véhicule a-t-il été testé sur route ?</Text>
-        <Picker selectedValue={essaiRoutier} onValueChange={(itemValue) => setEssaiRoutier(itemValue)}>
-          <Picker.Item label="Oui" value="Oui" />
-          <Picker.Item label="Non" value="Non" />
-        </Picker>
-      </View>
-
-      <Text style={styles.header}>Prix</Text>
+      {/* Autres champs */}
       <TextInput
         style={styles.input}
-        placeholder="Prix du véhicule"
+        placeholder="Moteur"
+        value={moteur}
+        onChangeText={setMoteur}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Transmission"
+        value={transmission}
+        onChangeText={setTransmission}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Freins"
+        value={freins}
+        onChangeText={setFreins}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Suspension"
+        value={suspension}
+        onChangeText={setSuspension}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Essai Routier"
+        value={essaiRoutier}
+        onChangeText={setEssaiRoutier}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Prix"
         value={prix}
         onChangeText={setPrix}
         keyboardType="numeric"
       />
 
-      <Button title="Ajouter des photos" onPress={handleImagePicker} />
+      <Button title="Sélectionner des images" onPress={handleImagePicker} />
       <View style={styles.imageContainer}>
-        {images.map((image, index) => (
-          <Image key={index} source={{ uri: image.uri }} style={styles.image} />
+        {images.map((imageUri, index) => (
+          <Image key={index} source={{ uri: imageUri }} style={styles.imagePreview} />
         ))}
       </View>
 
       <Button title={loading ? "Chargement..." : "Soumettre l'annonce"} onPress={handleSubmit} disabled={loading} />
-
-    <Text style={styles.headerbottom}>
-
-    </Text>
     </ScrollView>
-    </PaperProvider>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 20,
   },
-  header: {
-    fontSize: 18,
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
-    marginVertical: 10,
-  },
-  picker: {
-    height: 50,
-    marginBottom: 10,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
     height: 40,
-    borderColor: '#ccc',
+    borderColor: '#ddd',
     borderWidth: 1,
     marginBottom: 10,
-    paddingLeft: 10,
+    paddingLeft: 8,
   },
-  optionContainer: {
-    marginBottom: 15,
+  checkboxContainer: {
+    marginVertical: 5,
   },
   imageContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 10,
+    marginBottom: 20,
   },
-  image: {
-    width: 80,
-    height: 80,
-    margin: 5,
-  },
-  headerbottom: {
-    width: 80,
-    height: 150,
-    margin: 5,
+  imagePreview: {
+    width: 100,
+    height: 100,
+    marginRight: 10,
+    marginBottom: 10,
   },
 });
 
