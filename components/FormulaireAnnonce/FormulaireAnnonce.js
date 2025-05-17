@@ -36,7 +36,7 @@ const FormulaireAnnonce = () => {
   const [modeles, setModeles] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API_URL}/voiture/`)
+    axios.get(`${API_URL}/voiture`)
       .then(response => setMarques(response.data))
       .catch(error => console.error("Erreur marques:", error));
   }, []);
