@@ -14,7 +14,7 @@ const [loading, setLoading] = useState(true);
 
 
   useEffect(() => {
-    fetch('https://carsell-backend.onrender.com/annonces', {
+    fetch('https://carsell-backend.onrender.com/annoncesdujour', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
