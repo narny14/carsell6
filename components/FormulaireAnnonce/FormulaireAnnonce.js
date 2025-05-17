@@ -36,79 +36,103 @@ const FormulaireAnnonce = () => {
   const [modeles, setModeles] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API_URL}/voiture`)
+    axios.get(`https://carsell-backend.onrender.com/voiture`)
       .then(response => setMarques(response.data))
-      .catch(error => console.error("Erreur marques:", error));
+      .catch(error => console.error("Erreur marques:", error))
+    .catch(error => console.error("Erreur marques:", error));
   }, []);
 
   useEffect(() => {
     if (marque) {
-      axios.get(`${API_URL}/modeles/?marque=${marque}`)
+      axios.get(`https://carsell-backend.onrender.com/modeles/?marque=${marque}`)
         .then(response => setModeles(response.data))
         .catch(error => console.error("Erreur modèles:", error));
     }
   }, [marque]);
 
   const handleImagePicker = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.granted) {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        allowsEditing: true,
-        quality: 1,
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      });
-
-      if (!result.cancelled) {
-        setImages([...images, result.uri]);
-      }
-    } else {
-      alert('Permission refusée pour accéder à la galerie');
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (loading) return;
-
-    setLoading(true);
-
-    const formData = new FormData();
-    images.forEach((imageUri, index) => {
-      formData.append('images', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: `photo_${index + 1}.jpg`,
-      });
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (permission.granted) {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsMultipleSelection: true, // ✅ Permet de sélectionner plusieurs images
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      selectionLimit: 10, // ✅ Max 10 images (nécessite SDK 49+)
+      quality: 1,
+      // allowsEditing: false, // ❌ Ne pas activer pour éviter le crop
     });
 
-    // Ajout des autres données
-    formData.append('marque', marque);
-    formData.append('modele', modele);
-    formData.append('autreModele', autreModele);
-    formData.append('confortOptions', JSON.stringify(confortOptions));
-    formData.append('moteur', moteur);
-    formData.append('transmission', transmission);
-    formData.append('freins', freins);
-    formData.append('suspension', suspension);
-    formData.append('essaiRoutier', essaiRoutier);
-    formData.append('prix', prix);
+    if (!result.canceled) {
+      const selectedImages = result.assets.map(asset => asset.uri);
+      setImages([...images, ...selectedImages].slice(0, 10)); // limite à 10 max
+    }
+  } else {
+    alert('Permission refusée pour accéder à la galerie');
+  }
+};
 
-    try {
-      const response = await axios.post(`${API_URL}/annonces`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
 
-      if (response.status === 200) {
-        alert('Annonce ajoutée avec succès !');
-      } else {
-        alert('Erreur lors de l\'ajout de l\'annonce');
-      }
-    } catch (error) {
-      console.error('Erreur lors de la soumission:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
-    } finally {
-      setLoading(false);
+ const handleSubmit = async () => {
+  if (loading) return;
+
+  setLoading(true);
+
+  const formData = new FormData();
+
+  // Fonction pour obtenir le bon type MIME
+  const getMimeType = (uri) => {
+    const extension = uri.split('.').pop().toLowerCase();
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      default:
+        return 'application/octet-stream'; // Sécurité
     }
   };
+
+  images.forEach((imageUri, index) => {
+    const mimeType = getMimeType(imageUri);
+    const extension = mimeType.split('/')[1];
+    formData.append('images', {
+      uri: imageUri,
+      type: mimeType,
+      name: `photo_${index + 1}.${extension}`,
+    });
+  });
+
+  // Ajout des autres données
+  formData.append('marque', marque);
+  formData.append('modele', modele);
+  formData.append('autreModele', autreModele);
+  formData.append('confortOptions', JSON.stringify(confortOptions));
+  formData.append('moteur', moteur);
+  formData.append('transmission', transmission);
+  formData.append('freins', freins);
+  formData.append('suspension', suspension);
+  formData.append('essaiRoutier', essaiRoutier);
+  formData.append('prix', prix);
+
+  try {
+    const response = await axios.post(`https://carsell-backend.onrender.com/annonces`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    if (response.status === 200) {
+      alert('Annonce ajoutée avec succès !');
+      // Tu peux ici reset le formulaire si tu veux
+    } else {
+      alert("Erreur lors de l'ajout de l'annonce");
+    }
+  } catch (error) {
+    console.error('Erreur lors de la soumission:', error);
+    alert('Une erreur est survenue. Veuillez réessayer.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -117,7 +141,7 @@ const FormulaireAnnonce = () => {
       <Picker selectedValue={marque} onValueChange={setMarque}>
         <Picker.Item label="Sélectionner une marque" value="" />
         {marques.map(marque => (
-          <Picker.Item key={marque.id} label={marque.nom} value={marque.nom} />
+          <Picker.Item key={marque.id} label={marque.nom_marque} value={marque.nom_marque} />
         ))}
       </Picker>
 
@@ -125,7 +149,7 @@ const FormulaireAnnonce = () => {
         <Picker selectedValue={modele} onValueChange={setModele}>
           <Picker.Item label="Sélectionner un modèle" value="" />
           {modeles.map(modele => (
-            <Picker.Item key={modele.id} label={modele.nom} value={modele.nom} />
+            <Picker.Item key={modele.id} label={modele.nom_modele} value={modele.nom_modele} />
           ))}
         </Picker>
       )}
@@ -154,36 +178,61 @@ const FormulaireAnnonce = () => {
       ))}
 
       {/* Autres champs */}
-      <TextInput
-        style={styles.input}
-        placeholder="Moteur"
-        value={moteur}
-        onChangeText={setMoteur}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Transmission"
-        value={transmission}
-        onChangeText={setTransmission}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Freins"
-        value={freins}
-        onChangeText={setFreins}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Suspension"
-        value={suspension}
-        onChangeText={setSuspension}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Essai Routier"
-        value={essaiRoutier}
-        onChangeText={setEssaiRoutier}
-      />
+      <Text style={styles.label}>Moteur</Text>
+<Picker
+  selectedValue={moteur}
+  onValueChange={setMoteur}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="Bon" value="Bon" />
+  <Picker.Item label="Mauvais" value="Mauvais" />
+</Picker>
+
+<Text style={styles.label}>Transmission</Text>
+<Picker
+  selectedValue={transmission}
+  onValueChange={setTransmission}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="Bon" value="Bon" />
+  <Picker.Item label="Mauvais" value="Mauvais" />
+</Picker>
+
+<Text style={styles.label}>Freins</Text>
+<Picker
+  selectedValue={freins}
+  onValueChange={setFreins}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="Bon" value="Bon" />
+  <Picker.Item label="Mauvais" value="Mauvais" />
+</Picker>
+
+<Text style={styles.label}>Suspension</Text>
+<Picker
+  selectedValue={suspension}
+  onValueChange={setSuspension}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="Bon" value="Bon" />
+  <Picker.Item label="Mauvais" value="Mauvais" />
+</Picker>
+
+<Text style={styles.label}>Essai Routier</Text>
+<Picker
+  selectedValue={essaiRoutier}
+  onValueChange={setEssaiRoutier}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="Bon" value="Bon" />
+  <Picker.Item label="Mauvais" value="Mauvais" />
+</Picker>
+<Text style={styles.label}>Prix $</Text>
       <TextInput
         style={styles.input}
         placeholder="Prix"
@@ -215,7 +264,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   input: {
-    height: 40,
+    height: 70,
     borderColor: '#ddd',
     borderWidth: 1,
     marginBottom: 10,
