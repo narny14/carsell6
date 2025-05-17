@@ -30,6 +30,7 @@ const FormulaireAnnonce = () => {
   const [freins, setFreins] = useState('');
   const [suspension, setSuspension] = useState('');
   const [essaiRoutier, setEssaiRoutier] = useState('');
+  const [seats, setSeats] = useState('');
   const [prix, setPrix] = useState('');
 
   const [marques, setMarques] = useState([]);
@@ -112,6 +113,7 @@ const FormulaireAnnonce = () => {
   formData.append('freins', freins);
   formData.append('suspension', suspension);
   formData.append('essaiRoutier', essaiRoutier);
+  formData.append('seats', seats);
   formData.append('prix', prix);
 
   try {
@@ -222,6 +224,17 @@ const FormulaireAnnonce = () => {
   <Picker.Item label="Mauvais" value="Mauvais" />
 </Picker>
 
+<Text style={styles.label}>Nombre de places</Text>
+<Picker
+  selectedValue={seats}
+  onValueChange={setSeats}
+  style={styles.input}
+>
+  <Picker.Item label="Sélectionner" value="" />
+  <Picker.Item label="0" value="0" />
+  <Picker.Item label="1" value="1" />
+</Picker>
+
 <Text style={styles.label}>Essai Routier</Text>
 <Picker
   selectedValue={essaiRoutier}
@@ -248,7 +261,12 @@ const FormulaireAnnonce = () => {
         ))}
       </View>
 
-      <Button title={loading ? "Chargement..." : "Soumettre l'annonce"} onPress={handleSubmit} disabled={loading} />
+      <Button 
+  title={loading ? "Chargement..." : "Soumettre l'annonce"} 
+  onPress={handleSubmit} 
+  disabled={loading} 
+/>
+
     </ScrollView>
   );
 };
